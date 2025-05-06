@@ -1,0 +1,107 @@
+using System;
+using System.Collections.Generic;
+
+namespace BibliotecaApp.Refatorado
+{
+    // ====== Interfaces para DIP ======
+    public interface INotificacao
+    {
+        void Enviar(string destinatario, string mensagem);
+    }
+
+    public interface IRepositorio<T>
+    {
+        void Adicionar(T item);
+        T BuscarPorId(int id);
+        List<T> BuscarTodos();
+    }
+
+    // ====== Implementações Concretas ======
+    public class EmailService : INotificacao
+    {
+        public void Enviar(string destinatario, string mensagem)
+        {
+            Console.WriteLine($"E-mail para {destinatario}: {mensagem}");
+        }
+    }
+
+    public class SMSService : INotificacao
+    {
+        public void Enviar(string destinatario, string mensagem)
+        {
+            Console.WriteLine($"SMS para {destinatario}: {mensagem}");
+        }
+    }
+
+    // ====== Classes de Domínio ======
+    public class Livro
+    {
+        public string Titulo { get; set; }
+        public string Autor { get; set; }
+        public string ISBN { get; set; }
+        public bool Disponivel { get; set; } = true;
+    }
+
+    public class Usuario
+    {
+        public string Nome { get; set; }
+        public int ID { get; set; }
+    }
+
+    public class Emprestimo
+    {
+        public Livro Livro { get; set; }
+        public Usuario Usuario { get; set; }
+        public DateTime DataEmprestimo { get; set; }
+        public DateTime DataDevolucaoPrevista { get; set; }
+        public DateTime? DataDevolucaoEfetiva { get; set; }
+    }
+
+    // ====== Serviços Especializados (SRP) ======
+    public class GerenciadorLivros
+    {
+        private readonly IRepositorio<Livro> _repositorio;
+
+        public GerenciadorLivros(IRepositorio<Livro> repositorio)
+        {
+            _repositorio = repositorio;
+        }
+
+        public void CadastrarLivro(string titulo, string autor, string isbn)
+        {
+            var livro = new Livro { Titulo = titulo, Autor = autor, ISBN = isbn };
+            _repositorio.Adicionar(livro);
+        }
+    }
+
+    public class GerenciadorEmprestimos
+    {
+        private readonly IRepositorio<Emprestimo> _repositorio;
+        private readonly INotificacao _notificacao;
+
+        public GerenciadorEmprestimos(IRepositorio<Emprestimo> repositorio, INotificacao notificacao)
+        {
+            _repositorio = repositorio;
+            _notificacao = notificacao;
+        }
+
+        public bool RealizarEmprestimo(Usuario usuario, Livro livro, int diasEmprestimo)
+        {
+            if (!livro.Disponivel) return false;
+
+            livro.Disponivel = false;
+            var emprestimo = new Emprestimo
+            {
+                Livro = livro,
+                Usuario = usuario,
+                DataEmprestimo = DateTime.Now,
+                DataDevolucaoPrevista = DateTime.Now.AddDays(diasEmprestimo)
+            };
+
+            _repositorio.Adicionar(emprestimo);
+            _notificacao.Enviar(usuario.Nome, $"Empréstimo do livro: {livro.Titulo}");
+
+            return true;
+        }
+    }
+}
